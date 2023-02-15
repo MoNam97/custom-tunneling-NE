@@ -41,29 +41,30 @@ def read_n_byte_from_tcp_sock(sock, n):
 
 
 def handle_tcp_conn_recv(stcp_socket, udp_socket, incom_udp_addr):
-    '''
+    """
     read from tcp socket for the UDP segment received through the tunnel,
     then forward received segment to incom_udp_addr
-    '''
+    """
 
 
 def handle_tcp_conn_send(stcp_socket, rmt_udp_addr, udp_to_tcp_queue):
-    '''
-     get remote UDP ip and port(rmt_udp_addr) and Concat them then sending it to the TCP socket
+    """
+    get remote UDP ip and port(rmt_udp_addr) and Concat them then sending it to the TCP socket
     after that read from udp_to_tcp_queue for sendeig a UDP segment and update queue,
     don't forgot to block the queue when you are reading from it.
-    '''
+    """
 
 
 def handle_udp_conn_recv(udp_socket, tcp_server_addr, rmt_udp_addr):
-    '''
+    """
         This function should be in while True,
         Receive a UDP packet form incom_udp_addr.
         It also keeps the associated thread for handling tcp connections in udp_conn_list,
-        if incom_udp_addr not in udp_conn_list, Recognize a new UDP connection from incom_udp_addr. So establish a TCP connection to the remote server for it
+        if incom_udp_addr not in udp_conn_list, Recognize a new UDP connection from incom_udp_addr.
+        So establish a TCP connection to the remote server for it
         and if incom_udp_addr in udp_conn_list you should continue sending in esteblished socekt  ,
         you need a queue for connecting udp_recv thread to tcp_send thread.
-         '''
+         """
     pass
 
 
