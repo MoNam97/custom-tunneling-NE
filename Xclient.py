@@ -25,6 +25,8 @@ def parse_input_argument():
                         help="Determine the verbosity of the messages. The default value is 'info'.")
 
     args = parser.parse_args()
+    print(args)
+    print(type(args))
     return args
 
 
