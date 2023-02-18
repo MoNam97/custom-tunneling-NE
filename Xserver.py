@@ -8,20 +8,27 @@ tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 tcp_socket.bind((ip, port))
 
 
-def send_request_udp(request):
-    return request
+def handle_tcp_xclient_send(Xclient, addr):
+    Xclient.close()
 
 
-def handle_tcp_recv(Xclient, addr):
+def handle_tcp_xclient_recv(Xclient, addr):
     print(f'new udp connection from {addr}')
     try:
-        request = Xclient.recv(1024).decode(M_FORMAT)
+        request = Xclient.recv(4096).decode(M_FORMAT)
         print(f'request:\t{request}\n')
 
-        response = send_request_udp(request)
+        rmt_addr = request.split('\n\n$|$')[0]
+        rmt_addr = rmt_addr.split(':')[1]  # (ip, port)
+        print(f'rmt_addr:\t{rmt_addr}')
+        server_ip = rmt_addr.split(',')[0].replace('(', '')
+        server_port = int(rmt_addr.split(', ')[1].replace(')', ''))
+        data = request.split('\n\n$|$')[1]
 
-        Xclient.send(('I received the following response for request:\n' + response).encode(M_FORMAT))
-        Xclient.close()
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind((server_ip, server_port))
+        socket.send(data.encode(M_FORMAT))
+        # Xclient.send(('I received the following response for request:\n' + request).encode(M_FORMAT))
     except:
         print('TCP connection failed...')
     #
@@ -59,4 +66,5 @@ if __name__ == "__main__":
     print('Xserver listening...')
     while True:
         Xclient, addr = tcp_socket.accept()
-        threading.Thread(target=handle_tcp_recv, args=(Xclient, addr))
+        threading.Thread(target=handle_tcp_xclient_recv, args=(Xclient, addr))
+        threading.Thread(target=handle_tcp_xclient_send, args=(Xclient, addr))
