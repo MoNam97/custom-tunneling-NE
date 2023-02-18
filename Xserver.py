@@ -8,13 +8,19 @@ tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 tcp_socket.bind((ip, port))
 
 
+def send_request_udp(request):
+    return request
+
+
 def handle_tcp_recv(Xclient, addr):
     print(f'new udp connection from {addr}')
     try:
         request = Xclient.recv(1024).decode(M_FORMAT)
         print(f'request:\t{request}\n')
 
-        Xclient.send(('I received the following request:\n' + request).encode(M_FORMAT))
+        response = send_request_udp(request)
+
+        Xclient.send(('I received the following response for request:\n' + response).encode(M_FORMAT))
         Xclient.close()
     except:
         print('TCP connection failed...')
