@@ -2,7 +2,7 @@ import socket
 import threading
 
 M_FORMAT = 'ascii'
-IP = "127.0.1.0"
+IP = "127.0.0.80"
 PORT = int(input("Enter port: "))
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind((IP, PORT))
@@ -31,7 +31,13 @@ def tcp_send():
 
 if __name__ == '__main__':
     server.listen(1)
-    conn, addr = server.accept()
-    print(f"New Connection : {conn} <-> {addr}")
-    threading.Thread(target=tcp_recv, args=(conn,)).start()
-    # threading.Thread(target=udp_send).start()
+    print("Waiting for connection...")
+    while True:
+        try:
+            conn, addr = server.accept()
+            print(f"New Connection : {conn} <-> {addr}")
+            threading.Thread(target=tcp_recv, args=(conn,)).start()
+            # threading.Thread(target=udp_send).start()
+        except Exception as e:
+            print(f"tcp_recv error: {e}")
+            break
