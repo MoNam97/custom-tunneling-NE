@@ -16,8 +16,6 @@ import os
 
 incoming_udp_queue = Queue()
 outgoing_udp_queue = Queue()
-incoming_udp_list = []
-udp_conn_list = {}
 
 M_FORMAT = 'ascii'
 
@@ -61,8 +59,8 @@ def handle_tcp_conn_recv(tcp_socket, udp_socket, incom_udp_addr):
     """
     while True:
         try:
-            # data = tcp_socket.recv(1024)
-            data = read_n_byte_from_tcp_sock(tcp_socket, 4096)
+            data = tcp_socket.recv(1024)
+            # data = read_n_byte_from_tcp_sock(tcp_socket, 4096)
             data = data.decode(M_FORMAT).split("\n\n$|$")[1]
             # data = data.decode(M_FORMAT)
             print(f"received TCP segment from {tcp_socket.getpeername()}")
@@ -115,17 +113,17 @@ def handle_udp_conn_recv(udp_socket, tcp_server_addr, rmt_udp_addr):
         and if incom_udp_addr in udp_conn_list you should continue sending in esteblished socekt  ,
         you need a queue for connecting udp_recv thread to tcp_send thread.
     """
+    first_connection = True
     print(f"udp_conn_recv pid:\t{os.getpid()}\ntcp_server_addr:\t{tcp_server_addr}\nrmt_udp_addr:\t{rmt_udp_addr}")
     try:
         while True:
 
             request, address = udp_socket.recvfrom(1024)
-            if address not in udp_conn_list:
+            if first_connection is True:
                 print(f'new udp connection from {address}')
                 tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 tcp_socket.connect(tcp_server_addr)
-                # tcp_socket.sendall(rmt_udp_addr)
-                # udp_conn_list[address] = tcp_socket
+                first_connection = False
                 threading.Thread(target=handle_tcp_conn_recv, args=(tcp_socket, udp_socket, address)).start()
                 threading.Thread(target=handle_tcp_conn_send,
                                  args=(tcp_socket, rmt_udp_addr)).start()
@@ -134,9 +132,7 @@ def handle_udp_conn_recv(udp_socket, tcp_server_addr, rmt_udp_addr):
             request = request.decode(M_FORMAT)
             print(f'received UDP request from client {address}')
             print(f'request:\t{request}\n')
-            # handle_udp_conn_recv(request)
             outgoing_udp_queue.put(request)
-            # incoming_udp_list.append((request, address))
 
             ################################################
             # print(f"{os.getpid()}\nudp_conn_list: {udp_conn_list}\n")

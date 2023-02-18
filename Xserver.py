@@ -17,13 +17,15 @@ def handle_tcp_xclient_send(Xclient, server_socket):
             response = server_socket.recv(4096).decode(M_FORMAT)
             if response == '':
                 print("server_socket closed")
-                Xclient.close()
+                # Xclient.close()
                 break
             print(f'response:\t{response}\n')
+            response = "HTTP/1.1 200 OK\n\n$|$" + response
             Xclient.sendall(response.encode(M_FORMAT))
         except Exception as e:
             print('TCP connection failed...send\n %s' % e)
             Xclient.close()
+            server_socket.close()
             break
 
 
