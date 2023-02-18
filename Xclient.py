@@ -17,7 +17,6 @@ import os
 incoming_udp_queue = Queue()
 outgoing_udp_queue = Queue()
 incoming_udp_list = []
-
 udp_conn_list = {}
 
 M_FORMAT = 'ascii'
@@ -44,6 +43,7 @@ def parse_input_argument():
 
 def read_n_byte_from_tcp_sock(sock, n):
     '''Just for read n byte  from tcp socket'''
+
     buff = bytearray(n)
     pos = 0
     while pos < n:
@@ -54,19 +54,55 @@ def read_n_byte_from_tcp_sock(sock, n):
     return buff
 
 
-def handle_tcp_conn_recv(stcp_socket, udp_socket, incom_udp_addr):
+def handle_tcp_conn_recv(tcp_socket, udp_socket, incom_udp_addr):
     """
     read from tcp socket for the UDP segment received through the tunnel,
     then forward received segment to incom_udp_addr
     """
+    while True:
+        try:
+            # data = tcp_socket.recv(1024)
+            data = read_n_byte_from_tcp_sock(tcp_socket, 4096)
+            data = data.decode(M_FORMAT).split("\n\n$|$")[1]
+            # data = data.decode(M_FORMAT)
+            print(f"received TCP segment from {tcp_socket.getpeername()}")
+            print(f"segment:\t{data}\n")
+            incoming_udp_queue.put(data)
+        except Exception as ce:  # ConnectionError
+            print(ce)
+            break
 
 
-def handle_tcp_conn_send(stcp_socket, rmt_udp_addr, udp_to_tcp_queue):
+def handle_tcp_conn_send(tcp_socket: socket.socket, rmt_udp_addr):
     """
     get remote UDP ip and port(rmt_udp_addr) and Concat them then sending it to the TCP socket
     after that read from udp_to_tcp_queue for sendeig a UDP segment and update queue,
     don't forgot to block the queue when you are reading from it.
     """
+    # requests are decoded
+    while True:
+        try:
+            if not outgoing_udp_queue.empty():
+                data = outgoing_udp_queue.get()
+                segment = "GET /index.html HTTP/1.1\nAddr:" + rmt_udp_addr + "\n\n$|$" + data
+                print(f"segment:\t{segment}\n")
+                # tcp_socket.sendall(data, (rmt_udp_addr))
+                tcp_socket.sendall(segment.encode(M_FORMAT))
+        except Exception as ce:  # ConnectionError
+            print("TLS Connection error {}".format(ce))
+            break
+
+
+def handle_udp_conn_send(udp_socket: socket.socket, app_udp_addr):
+    # responses are decoded
+    while True:
+        try:
+            if not incoming_udp_queue.empty():
+                data = incoming_udp_queue.get()
+                udp_socket.sendto(data.encode(M_FORMAT), app_udp_addr)
+        except Exception as ce:
+            print("UDP Connection error {}".format(ce))
+            break
 
 
 def handle_udp_conn_recv(udp_socket, tcp_server_addr, rmt_udp_addr):
@@ -79,7 +115,7 @@ def handle_udp_conn_recv(udp_socket, tcp_server_addr, rmt_udp_addr):
         and if incom_udp_addr in udp_conn_list you should continue sending in esteblished socekt  ,
         you need a queue for connecting udp_recv thread to tcp_send thread.
     """
-    print("udp_conn_recv pid:\t" + str(os.getpid()))
+    print(f"udp_conn_recv pid:\t{os.getpid()}\ntcp_server_addr:\t{tcp_server_addr}\nrmt_udp_addr:\t{rmt_udp_addr}")
     try:
         while True:
 
@@ -87,24 +123,28 @@ def handle_udp_conn_recv(udp_socket, tcp_server_addr, rmt_udp_addr):
             if address not in udp_conn_list:
                 print(f'new udp connection from {address}')
                 tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                # tcp_socket.connect(tcp_server_addr)
+                tcp_socket.connect(tcp_server_addr)
                 # tcp_socket.sendall(rmt_udp_addr)
-                udp_conn_list[address] = tcp_socket
-                # threading.Thread(target=handle_tcp_conn_recv, args=(tcp_socket, udp_socket, address)).start()
-                # threading.Thread(target=handle_tcp_conn_send, args=(tcp_socket, rmt_udp_addr, outgoing_udp_queue)).start()
+                # udp_conn_list[address] = tcp_socket
+                threading.Thread(target=handle_tcp_conn_recv, args=(tcp_socket, udp_socket, address)).start()
+                threading.Thread(target=handle_tcp_conn_send,
+                                 args=(tcp_socket, rmt_udp_addr)).start()
+                threading.Thread(target=handle_udp_conn_send, args=(udp_socket, address)).start()
+
             request = request.decode(M_FORMAT)
             print(f'received UDP request from client {address}')
             print(f'request:\t{request}\n')
             # handle_udp_conn_recv(request)
-            incoming_udp_queue.put((request, address))
-            incoming_udp_list.append((request, address))
+            outgoing_udp_queue.put(request)
+            # incoming_udp_list.append((request, address))
 
-            print(f"{os.getpid()}\nudp_conn_list: {udp_conn_list}\n")
-            for item in incoming_udp_list:
-                print(item)
-            print("_____________\n")
+            ################################################
+            # print(f"{os.getpid()}\nudp_conn_list: {udp_conn_list}\n")
+            # for item in incoming_udp_list:
+            #     print(item)
+            # print("_____________\n")
 
-            udp_socket.sendto("message received\n".encode(M_FORMAT), address)
+            # udp_socket.sendto("message received\n".encode(M_FORMAT), address)
     except KeyboardInterrupt:
         print("Closing the UDP connection...")
 
@@ -116,7 +156,7 @@ if __name__ == "__main__":
 
     tcp_server_ip = args.server.split(':')[0]
     tcp_server_port = int(args.server.split(':')[1])
-    tcp_server_addr = (tcp_server_ip, tcp_server_port)
+    tcp_server_address = (tcp_server_ip, tcp_server_port)
 
     if args.verbosity == 'error':
         log_level = logging.ERROR
@@ -136,7 +176,7 @@ if __name__ == "__main__":
         udp_listening_port = int(tun_addr_split[1])
         rmt_udp_ip = tun_addr_split[2]
         rmt_udp_port = int(tun_addr_split[3])
-        rmt_udp_addr = (rmt_udp_ip, rmt_udp_port)
+        rmt_udp_address = (rmt_udp_ip, rmt_udp_port)
 
         try:
             udp_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
@@ -150,7 +190,7 @@ if __name__ == "__main__":
             logging.info("Bind to the UDP socket {}:{}".format(udp_listening_ip, udp_listening_port))
 
         mp.Process(target=handle_udp_conn_recv,
-                   args=(udp_socket, tcp_server_addr, rmt_udp_addr)).start()
+                   args=(udp_socket, tcp_server_address, rmt_udp_address)).start()
 
     try:
         while True:
