@@ -1,6 +1,8 @@
 import multiprocessing as mp
 import socket
 import logging
+import threading
+
 import numpy as np
 from queue import Queue
 import ssl
@@ -9,6 +11,16 @@ import sys
 import argparse
 import random
 import time
+
+import os
+
+incoming_udp_queue = Queue()
+outgoing_udp_queue = Queue()
+incoming_udp_list = []
+
+udp_conn_list = {}
+
+M_FORMAT = 'ascii'
 
 
 def parse_input_argument():
@@ -66,11 +78,40 @@ def handle_udp_conn_recv(udp_socket, tcp_server_addr, rmt_udp_addr):
         So establish a TCP connection to the remote server for it
         and if incom_udp_addr in udp_conn_list you should continue sending in esteblished socekt  ,
         you need a queue for connecting udp_recv thread to tcp_send thread.
-         """
-    pass
+    """
+    print("udp_conn_recv pid:\t" + str(os.getpid()))
+    try:
+        while True:
+
+            request, address = udp_socket.recvfrom(1024)
+            if address not in udp_conn_list:
+                print(f'new udp connection from {address}')
+                tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                # tcp_socket.connect(tcp_server_addr)
+                # tcp_socket.sendall(rmt_udp_addr)
+                udp_conn_list[address] = tcp_socket
+                # threading.Thread(target=handle_tcp_conn_recv, args=(tcp_socket, udp_socket, address)).start()
+                # threading.Thread(target=handle_tcp_conn_send, args=(tcp_socket, rmt_udp_addr, outgoing_udp_queue)).start()
+            request = request.decode(M_FORMAT)
+            print(f'received UDP request from client {address}')
+            print(f'request:\t{request}\n')
+            # handle_udp_conn_recv(request)
+            incoming_udp_queue.put((request, address))
+            incoming_udp_list.append((request, address))
+
+            print(f"{os.getpid()}\nudp_conn_list: {udp_conn_list}\n")
+            for item in incoming_udp_list:
+                print(item)
+            print("_____________\n")
+
+            udp_socket.sendto("message received\n".encode(M_FORMAT), address)
+    except KeyboardInterrupt:
+        print("Closing the UDP connection...")
 
 
 if __name__ == "__main__":
+    print("main pid:\t" + str(os.getpid()))
+
     args = parse_input_argument()
 
     tcp_server_ip = args.server.split(':')[0]
@@ -83,8 +124,11 @@ if __name__ == "__main__":
         log_level = logging.INFO
     elif args.verbosity == 'debug':
         log_level = logging.DEBUG
-    format = "%(asctime)s: (%(levelname)s) %(message)s"
-    logging.basicConfig(format=format, level=log_level, datefmt="%H:%M:%S")
+    else:
+        print('Invalid verbosity level.')
+        log_level = logging.ERROR
+    conn_format = "%(asctime)s: (%(levelname)s) %(message)s"
+    logging.basicConfig(format=conn_format, level=log_level, datefmt="%H:%M:%S")
 
     for tun_addr in args.udp_tunnel:
         tun_addr_split = tun_addr.split(':')
