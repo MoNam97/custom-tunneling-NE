@@ -85,7 +85,7 @@ def handle_tcp_conn_send(tcp_socket: socket.socket, rmt_udp_addr):
             if not outgoing_udp_queue.empty():
                 data = outgoing_udp_queue.get()
                 segment = "GET /index.html HTTP/1.1\nAddr:" + str(rmt_udp_addr) + "\n\n$|$" + data
-                print(f"segment:\t{segment}\n")
+                print(f"segment:\n{segment}\n")
                 # tcp_socket.sendall(data, (rmt_udp_addr))
                 tcp_socket.sendall(segment.encode(M_FORMAT))
         except Exception as ce:  # ConnectionError

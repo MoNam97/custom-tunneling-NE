@@ -13,24 +13,27 @@ def handle_tcp_xclient_send(Xclient, addr):
 
 
 def handle_tcp_xclient_recv(Xclient, addr):
-    print(f'new udp connection from {addr}')
-    try:
-        request = Xclient.recv(4096).decode(M_FORMAT)
-        print(f'request:\t{request}\n')
+    print(f'new TCP connection from {addr}')
+    while True:
+        try:
+            request = Xclient.recv(4096).decode(M_FORMAT)
+            print(f'request:\t{request}\n')
 
-        rmt_addr = request.split('\n\n$|$')[0]
-        rmt_addr = rmt_addr.split(':')[1]  # (ip, port)
-        print(f'rmt_addr:\t{rmt_addr}')
-        server_ip = rmt_addr.split(',')[0].replace('(', '')
-        server_port = int(rmt_addr.split(', ')[1].replace(')', ''))
-        data = request.split('\n\n$|$')[1]
+            rmt_addr = request.split('\n\n$|$')[0]
+            rmt_addr = rmt_addr.split(':')[1]  # (ip, port)
+            print(f'rmt_addr:\t{rmt_addr}')
+            server_ip = rmt_addr.split(',')[0].replace('(', '')
+            server_port = int(rmt_addr.split(', ')[1].replace(')', ''))
+            data = request.split('\n\n$|$')[1]
 
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind((server_ip, server_port))
-        socket.send(data.encode(M_FORMAT))
-        # Xclient.send(('I received the following response for request:\n' + request).encode(M_FORMAT))
-    except:
-        print('TCP connection failed...')
+            # server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # server_socket.bind((server_ip, server_port))
+            # socket.send(data.encode(M_FORMAT))
+            # # Xclient.send(('I received the following response for request:\n' + request).encode(M_FORMAT))
+        except :
+            print('TCP connection failed...')
+            break
+
     #
     # try:
     #     while True:
@@ -64,7 +67,11 @@ def handle_tcp_xclient_recv(Xclient, addr):
 if __name__ == "__main__":
     tcp_socket.listen()
     print('Xserver listening...')
-    while True:
-        Xclient, addr = tcp_socket.accept()
-        threading.Thread(target=handle_tcp_xclient_recv, args=(Xclient, addr))
-        threading.Thread(target=handle_tcp_xclient_send, args=(Xclient, addr))
+    try:
+        while True:
+            Xclient, addr = tcp_socket.accept()
+            # print(f'connection:\t{Xclient}, {addr}')
+            threading.Thread(target=handle_tcp_xclient_recv, args=(Xclient, addr)).start()
+            threading.Thread(target=handle_tcp_xclient_send, args=(Xclient, addr)).start()
+    except:
+        print('Failed...')
