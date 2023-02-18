@@ -1,4 +1,5 @@
-import socket, threading
+import socket
+import threading
 
 Xclient_host = '127.0.0.1'
 Xclient_port = 8010
@@ -9,7 +10,7 @@ ip = input('Enter IP:\n')
 
 def handle_xclient_send():
     while True:
-        proxy = input('Enter proxy server (Xserver) IP::port or 0 for default proxy:\n')
+        proxy = input('Enter proxy server (Xserver.py) IP::port or 0 for default proxy:\n')
 
         Xserver_ip, Xserver_port = '192.168.0.24', 8080
         if proxy != '0':
