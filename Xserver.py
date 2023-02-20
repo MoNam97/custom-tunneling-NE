@@ -1,5 +1,6 @@
 import socket
 import threading
+import ssl
 
 M_FORMAT = 'ascii'
 
@@ -60,44 +61,18 @@ def handle_tcp_xclient_recv(Xclient, addr):
             break
     print("break from the while loop :\\")
 
-    #
-    # try:
-    #     while True:
-    #
-    #         request, address = udp_socket.recvfrom(1024)
-    #         if address not in udp_conn_list:
-    #             print(f'new udp connection from {address}')
-    #             tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #             # tcp_socket.connect(tcp_server_addr)
-    #             # tcp_socket.sendall(rmt_udp_addr)
-    #             udp_conn_list[address] = tcp_socket
-    #             # threading.Thread(target=handle_tcp_conn_recv, args=(tcp_socket, udp_socket, address)).start()
-    #             # threading.Thread(target=handle_tcp_conn_send, args=(tcp_socket, rmt_udp_addr, outgoing_udp_queue)).start()
-    #         request = request.decode(M_FORMAT)
-    #         print(f'received UDP request from client {address}')
-    #         print(f'request:\t{request}\n')
-    #         # handle_udp_conn_recv(request)
-    #         incoming_udp_queue.put((request, address))
-    #         incoming_udp_list.append((request, address))
-    #
-    #         print(f"{os.getpid()}\nudp_conn_list: {udp_conn_list}\n")
-    #         for item in incoming_udp_list:
-    #             print(item)
-    #         print("_____________\n")
-    #
-    #         udp_socket.sendto("message received\n".encode(M_FORMAT), address)
-    # except KeyboardInterrupt:
-    #     print("Closing the UDP connection...")
-
 
 if __name__ == "__main__":
     tcp_socket.listen(1)
     print('Xserver listening...')
+    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    ssl_context.load_cert_chain('xserver_certificate.crt', 'xserver_private.key')
     try:
         while True:
             Xclient, addr = tcp_socket.accept()
+            tls_socket = ssl_context.wrap_socket(Xclient, server_side=True)
             # print(f'connection:\t{Xclient}, {addr}')
-            threading.Thread(target=handle_tcp_xclient_recv, args=(Xclient, addr)).start()
+            threading.Thread(target=handle_tcp_xclient_recv, args=(tls_socket, addr)).start()
             # threading.Thread(target=handle_tcp_xclient_send, args=(Xclient, )).start()
     except Exception as e:
         print('Failed...{}'.format(e))

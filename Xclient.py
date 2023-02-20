@@ -122,11 +122,13 @@ def handle_udp_conn_recv(udp_socket, tcp_server_addr, rmt_udp_addr):
             if first_connection is True:
                 print(f'new udp connection from {address}')
                 tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                tcp_socket.connect(tcp_server_addr)
+                ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile='xserver_certificate.crt')
+                tls_socket = ssl_context.wrap_socket(tcp_socket, server_hostname='my_xserver.com')
+                tls_socket.connect(tcp_server_addr)
                 first_connection = False
-                threading.Thread(target=handle_tcp_conn_recv, args=(tcp_socket, udp_socket, address)).start()
+                threading.Thread(target=handle_tcp_conn_recv, args=(tls_socket, udp_socket, address)).start()
                 threading.Thread(target=handle_tcp_conn_send,
-                                 args=(tcp_socket, rmt_udp_addr)).start()
+                                 args=(tls_socket, rmt_udp_addr)).start()
                 threading.Thread(target=handle_udp_conn_send, args=(udp_socket, address)).start()
 
             request = request.decode(M_FORMAT)
